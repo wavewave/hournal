@@ -1,56 +1,108 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 import Graphics.UI.Gtk
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk.Gdk.EventM
 
 import System.IO
 
-type Stroke = [(Double,Double)] 
+import Control.Applicative hiding (many)
 
-matchMarker :: String -> String -> (Bool,String)  
-matchMarker [] xs = (True, xs) 
-matchMarker (c:cs) (x:xs) = if c == x 
-                            then matchMarker cs xs 
-                            else (False, (x:xs) ) 
+import qualified Data.Attoparsec as P 
+import Data.Attoparsec.Char8 
+import qualified Data.ByteString.Char8 as B hiding (map) 
+import Data.ByteString.Internal (c2w,w2c)
+import Data.ByteString.Lex.Double
 
-dropUntilMarker :: String -> String -> (String,String) 
-dropUntilMarker [] xs = ([],xs)
-dropUntilMarker cs [] = ([],[])
-dropUntilMarker mkr@(c:cs) str = let str' = dropWhile (/= c) str 
-                                     (ismatched,str'') = matchMarker mkr str'  
-                                 in  if ismatched 
-                                     then (mkr,str'') 
-                                     else dropUntilMarker mkr (tail str'')
+-- import Data.Attoparsec.Incremental.Char8
 
---readheader :: String -> (String, String) 
---readheader str = let str2 = dropWhile (/= '<') str
---                 in if (str2 !! 1) == '?' 
---                    then takeWhile (/= '?') str2 
+skipSpaces :: Parser () 
+skipSpaces = P.satisfy isHorizontalSpace *> P.skipWhile isHorizontalSpace
+
+trim_starting_space :: Parser ()
+trim_starting_space = do try endOfInput
+                         <|> (many . satisfy . inClass ) " \n" *> return () 
+                
+langle :: Parser Char 
+langle = char '<'
+
+rangle :: Parser Char 
+rangle = char '>'
+
+header :: Parser String
+header = do string "<?" 
+            result <- headercontent
+            return result
+            
+oneelem = try (string "?>" >> return Nothing )
+          <|> (many1 (notChar '?') >>= return . Just ) 
+          <|> do a <- anyChar
+                 return (Just [a])
+                 
+headercontent :: Parser String 
+headercontent = mymaybeWhile oneelem >>= return . concat 
+
+mymaybeWhile :: Parser (Maybe a) -> Parser [a]
+mymaybeWhile oneelem = do x <- oneelem
+                          case x of 
+                            Just t -> do ts <- mymaybeWhile oneelem
+                                         return (t:ts)  
+                            Nothing -> return []
                             
-readheadertest str = dropUntilMaker "<?" str
+              
+
+stroketagopen :: Parser B.ByteString 
+stroketagopen = string "<stroke" *> trim_starting_space *> P.takeWhile (/= (c2w '>')) <* char '>'
+
+stroketagclose :: Parser B.ByteString 
+stroketagclose = string "</stroke>"
 
 
-readxojtest :: String
+double :: Parser Double 
+double = do x <- (many1 . satisfy . inClass) "0123456789.+-" 
+            return $ read x 
+  
+ --  numeric "Double" readDouble
 
-readxoj :: String -> IO ((Double,Double),[Stroke])
-readxoj filename = do 
-  handle <- openFile filename ReadMode
-  str <- hGetContents handle
-  let strs = lines str
-      pagesizestr = words (strs !! 0) 
-  
-      width = read $ pagesizestr !! 0  
-      height = read $ pagesizestr !! 1
-  
-      strokesstr = tail strs
-      
-      strokes = map (parseOneStroke.words) strokesstr 
-  
-  
-  return ((width,height),strokes)
+onestroke :: Parser Stroke 
+onestroke =  do stroketagopen
+                coordlist <- many (do { trim_starting_space ; x <- double ; skipSpace ; y <- double ; skipSpace ; return (x,y) }) 
+                  -- str <- P.takeWhile (/= (c2w '<'))
+                stroketagclose
+                return coordlist
 
-parseOneStroke :: [String] -> Stroke
-parseOneStroke [] = [] 
-parseOneStroke (x:y:xs) = (read x, read y) : parseOneStroke xs 
+--onecoord :: B.ByteString -> (Double, Double) 
+--onecoord = do x <- readDouble
+--              y <- readDouble
+--              return (x,y)
+
+
+parser_xournal :: Parser [Stroke]
+parser_xournal = do trim_starting_space 
+                    -- header
+                    many (onestroke <* trim_starting_space)
+                  
+
+
+read_xournal :: String -> IO [Stroke] 
+read_xournal str = do 
+  bytestr <- B.readFile str
+  
+  let r = parse parser_xournal bytestr
+  let s = case r of 
+        Partial _  -> onlyresult (feed r B.empty)
+        Done _  _  -> onlyresult r
+        Fail _ _ _ -> onlyresult r  
+
+  
+  return s
+  
+onlyresult (Done _ r) = r 
+
+                                    
+
+
+type Stroke = [(Double,Double)] 
 
 drawOneStroke :: Stroke -> Render ()
 drawOneStroke ((x0,y0) : xs)  = do 
@@ -61,12 +113,16 @@ drawOneStroke ((x0,y0) : xs)  = do
 main :: IO () 
 main = do 
   
-  ((w,h),strokes) <- readxoj "test.xoj"
+  strokes <- read_xournal  "test2.xoj"
+--  print r1
+--  print str2
+--  ((w,h),strokes) <- readxoj "test.xoj"
   
-  print $ w
-  print $ h
+--  print $ w
+--  print $ h
 --  print oneline
 
+  
   initGUI
   window <- windowNew 
   canvas <- drawingAreaNew
@@ -80,7 +136,7 @@ main = do
   widgetShowAll window
   onDestroy window mainQuit
   
-  mainGUI
+  mainGUI 
   
   
 updateCanvas :: DrawingArea -> [Stroke] -> IO Bool
