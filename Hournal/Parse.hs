@@ -12,6 +12,15 @@ import Data.ByteString.Lex.Double
 
 -- import Data.Attoparsec.Incremental.Char8
 
+import qualified Data.Iteratee as Iter
+import qualified Data.Iteratee.WrappedByteString as WB
+import qualified Data.ListLike as LL
+
+import qualified Data.Attoparsec.Iteratee as AI
+import Data.Word (Word8)
+
+import Control.Monad.IO.Class
+
 import Hournal.Type
 
 skipSpaces :: Parser () 
@@ -167,8 +176,15 @@ background = do trim
 backgroundheader = string "<background"
 backgroundclose = string "/>"
 
+--- Parser to Iteratee 
+
+iter_xournal :: Iter.IterateeG WB.WrappedByteString Word8 IO Xournal
+iter_xournal = AI.parserToIteratee parser_xournal 
+
+
 read_xournal :: String -> IO Xournal 
-read_xournal str = do 
+read_xournal str =  Iter.fileDriver iter_xournal str 
+{-
   bytestr <- B.readFile str
   
   let r = parse parser_xournal bytestr
@@ -179,7 +195,7 @@ read_xournal str = do
                      print y 
                      print z
                      return undefined  
-
+-}
   
   
 onlyresult (Done _ r) = r 
