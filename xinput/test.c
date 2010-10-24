@@ -15,6 +15,7 @@ on_button_press_event           (GtkWidget       *widget,
   else {
     printf(" it's not core! \n" ); 
   }
+  printf(" coord (x,y) = (%f,%f)", event->x , event->y ); 
 
   return FALSE; 
 }
@@ -79,9 +80,13 @@ main (int argc, char *argv [] )
   printf("%d \n", GTK_WIDGET(window)->window) ;
 
 
-  gdk_input_set_extension_events(GTK_WIDGET(canvas)->window, 
-  GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK,
-  GDK_EXTENSION_EVENTS_ALL);
+  //  gdk_input_set_extension_events(GTK_WIDGET(canvas)->window, 
+  //GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK,
+  //GDK_EXTENSION_EVENTS_ALL);
+
+  gtk_widget_set_extension_events( GTK_WIDGET(canvas), GDK_EXTENSION_EVENTS_ALL ); 
+  
+  printf("extension =  %d " , gtk_widget_get_extension_events( GTK_WIDGET(canvas) ) ); 
 
   g_signal_connect (button, "clicked", 
 		    G_CALLBACK (callback), 
@@ -94,9 +99,11 @@ main (int argc, char *argv [] )
 			   G_CALLBACK(gtk_main_quit), NULL ); 
   gtk_widget_show (window); 
 
-  gdk_input_set_extension_events(GTK_WIDGET(canvas)->window, 
-  GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK,
-  GDK_EXTENSION_EVENTS_ALL);
+  //  gtk_widget_set_extension_events( GTK_WIDGET(canvas), GDK_EXTENSION_EVENTS_NONE ); 
+
+  // gdk_input_set_extension_events(GTK_WIDGET(canvas)->window, 
+  //GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK,
+  //GDK_EXTENSION_EVENTS_ALL);
 
   gtk_main () ; 
 
