@@ -94,6 +94,10 @@ main (int argc, char *argv [] )
 			   G_CALLBACK(gtk_main_quit), NULL ); 
   gtk_widget_show (window); 
 
+  gdk_input_set_extension_events(GTK_WIDGET(canvas)->window, 
+  GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK,
+  GDK_EXTENSION_EVENTS_ALL);
+
   gtk_main () ; 
 
 
