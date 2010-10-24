@@ -1,4 +1,5 @@
 #include <gtk/gtk.h>
+#include <libgnomecanvas/libgnomecanvas.h>
 #include <stdio.h>
 
 gboolean
@@ -30,6 +31,7 @@ main (int argc, char *argv [] )
   GtkWidget *window ; 
   GList* dev_list ; 
   GdkDevice *device; 
+  GnomeCanvas* canvas;
   GtkWidget *button; 
 
   gtk_init (&argc, &argv); 
@@ -41,6 +43,9 @@ main (int argc, char *argv [] )
 
   button = gtk_button_new_with_label ( "hello" ) ; 
 
+
+
+  canvas = GNOME_CANVAS (gnome_canvas_new_aa () ); 
   
 
   dev_list = gdk_devices_list();
@@ -53,21 +58,27 @@ main (int argc, char *argv [] )
       gdk_device_set_axis_use(device, 1, GDK_AXIS_IGNORE);
 #endif
       gdk_device_set_mode(device, GDK_MODE_SCREEN);
-      printf("   yeah this is xinput device \n"); 
+      printf("   yeah this is xinput device %s \n", device -> name); 
       } 
     dev_list = dev_list->next; 
   }
   
 
+  gtk_widget_set_events (GTK_WIDGET (canvas), GDK_EXPOSURE_MASK | GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_KEY_PRESS_MASK | GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK);
 
 
-  gtk_container_add (GTK_CONTAINER (window), button); 
+  //  gtk_container_add (GTK_CONTAINER (window), button); 
+  gtk_container_add (GTK_CONTAINER (window), GTK_WIDGET(canvas)); 
+
+  gtk_widget_show (GTK_WIDGET(canvas)); 
+
   gtk_widget_show (button); 
   gtk_widget_show (window); 
 
 
   printf("%d \n", GTK_WIDGET(button)->window) ;
   printf("%d \n", GTK_WIDGET(window)->window) ;
+
 
   gdk_input_set_extension_events(GTK_WIDGET(window)->window, 
   GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK,
@@ -77,7 +88,7 @@ main (int argc, char *argv [] )
 		    G_CALLBACK (callback), 
 		    (gpointer) "cool button"); 
 
-  g_signal_connect (G_OBJECT(button), "button_press_event", 
+  g_signal_connect (G_OBJECT(canvas), "button_press_event", 
 		    G_CALLBACK(on_button_press_event), 
 		    NULL ); 
   g_signal_connect_swapped(G_OBJECT(window), "destroy", 
