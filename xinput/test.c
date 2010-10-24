@@ -73,14 +73,13 @@ main (int argc, char *argv [] )
   gtk_widget_show (GTK_WIDGET(canvas)); 
 
   gtk_widget_show (button); 
-  gtk_widget_show (window); 
 
 
   printf("%d \n", GTK_WIDGET(button)->window) ;
   printf("%d \n", GTK_WIDGET(window)->window) ;
 
 
-  gdk_input_set_extension_events(GTK_WIDGET(window)->window, 
+  gdk_input_set_extension_events(GTK_WIDGET(canvas)->window, 
   GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK,
   GDK_EXTENSION_EVENTS_ALL);
 
@@ -93,7 +92,10 @@ main (int argc, char *argv [] )
 		    NULL ); 
   g_signal_connect_swapped(G_OBJECT(window), "destroy", 
 			   G_CALLBACK(gtk_main_quit), NULL ); 
+  gtk_widget_show (window); 
+
   gtk_main () ; 
+
 
   return 0 ; 
 
