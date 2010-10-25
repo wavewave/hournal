@@ -1,8 +1,13 @@
-{-# LANGUAGE PackageImports, ForeignFunctionInterface #-}
+{-# LANGUAGE PackageImports, ForeignFunctionInterface, Rank2Types, ExistentialQuantification, 
+             ScopedTypeVariables, FlexibleContexts #-}
 
 module Main where
 
+import Coroutine
 
+import Type
+import UI 
+import InitDevice
 
 import Graphics.UI.Gtk
 
@@ -13,17 +18,50 @@ import "mtl" Control.Monad.Trans
 import Data.IORef
 
 
-foreign import ccall "initdevice.h initdevice" c_initdevice
-  :: IO ()
+{-newtype T = forall a. C a
+
+newtype CoroutineIORef = forall i. forall o. forall m. forall a. CoroutineIORef { 
+  runCoroutineIORef :: IORef (i -> CoroutineT i o m a)
+  } 
+-}
+
+
+data AllCont = forall o a. (Show o)  => AllCont { runcont :: (String -> CoroutineT String o IO a) }
+
+
+
+coroutineHandler :: IORef AllCont -> EventM a ()  
+coroutineHandler contref = do 
+  cont <- liftIO $ readIORef contref
+  
+case cont of 
+    AllCont fun -> do 
+      r <- liftIO $ run $ fun "test"
+      case r of 
+        Result a -> do 
+          let newone = \_ -> CoroutineT $ (return r)  -- (Result a :: Result String o IO b)
+          liftIO $ writeIORef contref (AllCont newone)
+          return ()
+        Yield o ncont -> do 
+          liftIO $ putStrLn $ show o
+          liftIO $ writeIORef contref (AllCont ncont)  
+          return ()
+  
+  where run exp = runCoroutineT exp 
+
+
+
+data T = forall o. (Show o) => MkT o
+
+
+f :: T -> String
+f (MkT o) = show o
 
 reportPoint msg = do (x,y) <- eventCoordinates 
                      liftIO $ putStrLn $ msg ++ (show (x,y)) 
                   
 
--- type PenDrawingMode a = State Int a 
 
-data Status = StandBy | Drawing 
-data PenStatus = Pen | Erase
 
 myPenButtonClicked pentyperef   = do liftIO $ modifyIORef pentyperef (const Pen) 
                                      liftIO $ putStrLn "pen button clicked" 
@@ -72,37 +110,29 @@ myButtonReleased statusref pentyperef = do
                
               
 
+testCoroutine :: CoroutineT String String IO ()
+testCoroutine = do 
+  yield "haha" 
+  yield "babo"
+  yield "what are you doing"
+  return ()
+
 main :: IO () 
 main = do 
   
   statusref <- newIORef StandBy
   pentyperef <- newIORef Pen
   
+  contref <- newIORef (AllCont (const testCoroutine)) 
+  
   initGUI
-  window <- windowNew
-  
-  
-  vbox <- vBoxNew False 0 
-  hbox <- hBoxNew False 0 
-  
-  buttonpen   <- buttonNewWithLabel "Pen"
-  buttonerase <- buttonNewWithLabel "Erase"
-  canvas <- drawingAreaNew
-  
-  boxPackStart hbox buttonpen   PackGrow 0 
-  boxPackStart hbox buttonerase PackGrow 0 
-  
-  boxPackEnd vbox hbox   PackNatural 0 
-  boxPackEnd vbox canvas PackGrow    0 
-  
-  c_initdevice
-  
-  set window [containerChild := vbox ]
-  
+  initdevice
+  (window,buttonpen,buttonerase,canvas) <- initWindows 
  
   widgetAddEvents canvas [ButtonMotionMask]
   
-  canvas `on` buttonPressEvent   $ tryEvent $ myButtonPressed  statusref pentyperef
+  canvas `on` buttonPressEvent   $ tryEvent $ coroutineHandler contref
+    -- myButtonPressed  statusref pentyperef
   canvas `on` motionNotifyEvent  $ tryEvent $ myMouseMoved     statusref pentyperef
   canvas `on` buttonReleaseEvent $ tryEvent $ myButtonReleased statusref pentyperef
                                                
@@ -112,14 +142,6 @@ main = do
    
   widgetSetExtensionEvents canvas [ExtensionEventsNone]  
   
---  (\(Widget arg1) args -> withForeignPtr arg1 $ \argPtr1 ->gtk_widget_set_extension_events argPtr1 arg2) (toWidget canvas) ((fromIntegral . fromFlags) [ExtensionEventsCursor])
-  
-  events <- widgetGetEvents canvas
-  putStrLn $ show events
-  
-  modes <- widgetGetExtensionEvents canvas
-  putStrLn $ show modes 
-
 
   onDestroy window mainQuit
   
