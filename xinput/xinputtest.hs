@@ -34,7 +34,7 @@ coroutineHandler :: IORef AllCont -> EventM a ()
 coroutineHandler contref = do 
   cont <- liftIO $ readIORef contref
   
-case cont of 
+  case cont of 
     AllCont fun -> do 
       r <- liftIO $ run $ fun "test"
       case r of 
@@ -112,7 +112,8 @@ myButtonReleased statusref pentyperef = do
 
 testCoroutine :: CoroutineT String String IO ()
 testCoroutine = do 
-  yield "haha" 
+  i <- yield "haha" 
+  liftIO $ putStrLn i
   yield "babo"
   yield "what are you doing"
   return ()
