@@ -13,7 +13,6 @@ import Data.ByteString.Lex.Double
 -- import Data.Attoparsec.Incremental.Char8
 
 import qualified Data.Iteratee as Iter
-import qualified Data.Iteratee.WrappedByteString as WB
 import qualified Data.ListLike as LL
 
 import qualified Data.Attoparsec.Iteratee as AI
@@ -63,11 +62,11 @@ stroketagopen = string "<stroke" *> trim_starting_space *> P.takeWhile (/= (c2w 
 stroketagclose :: Parser B.ByteString 
 stroketagclose = string "</stroke>"
 
-
+{-
 double :: Parser Double 
 double = do x <- (many1 . satisfy . inClass) "0123456789.+-" 
             return $ read x 
-  
+-}  
 
 onestroke :: Parser Stroke 
 onestroke =  do trim
@@ -178,7 +177,7 @@ backgroundclose = string "/>"
 
 --- Parser to Iteratee 
 
-iter_xournal :: Iter.IterateeG WB.WrappedByteString Word8 IO Xournal
+iter_xournal :: Iter.Iteratee B.ByteString IO Xournal
 iter_xournal = AI.parserToIteratee parser_xournal 
 
 

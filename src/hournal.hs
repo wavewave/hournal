@@ -1,11 +1,12 @@
 module Main where 
 
+import System.IO
+import System.Environment 
+
 import Graphics.UI.Gtk
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk.Gdk.EventM
 
-import System.IO
-import System.Environment 
 
 import Data.IORef
 
@@ -24,6 +25,68 @@ refresh_xournal :: IORef Xournal -> FilePath -> IO ()
 refresh_xournal xojref str = do 
   xoj <- read_xournal str 
   writeIORef xojref xoj
+
+  
+  
+updateCanvas :: DrawingArea -> IORef Xournal -> IORef Int -> IO Bool
+updateCanvas canvas xojref pagenumref = do 
+  pagenumval <- readIORef pagenumref
+  xoj        <- readIORef xojref
+  win <- widgetGetDrawWindow canvas
+  (w',h') <- widgetGetSize canvas
+  
+  let totalnumofpages = (length . xoj_pages) xoj
+  
+  let currpagenum = if pagenumval >= totalnumofpages 
+                    then totalnumofpages - 1
+                    else if pagenumval < 0 
+                         then 0 
+                         else pagenumval
+                         
+  writeIORef pagenumref currpagenum 
+  
+  let currpage = ((!!currpagenum).xoj_pages) xoj
+  let strokes = (layer_strokes . (!!0) . page_layers ) currpage 
+      (Dim w h) = page_dim currpage
+  
+  renderWithDrawable win $ do 
+    scale (realToFrac w' / w) (realToFrac h' / h)
+
+    setSourceRGB 1 1 1 
+    rectangle 0 0 w h 
+    fill
+
+    setSourceRGB 0 0 0
+    setLineWidth 1
+    setLineCap LineCapRound
+    setLineJoin LineJoinRound
+
+    mapM_ drawOneStroke strokes
+    stroke
+  return True
+
+
+
+keepState render = do 
+  save
+  render
+  restore
+
+mystroke =
+  keepState $ do 
+    setSourceRGBA 1 1 0 0.7
+    stroke
+
+fillStroke = do 
+  fillPreserve
+  mystroke 
+  
+drawCircle x y r = do 
+  arc x y r 0 (2*pi)
+  fillStroke
+
+
+
 
 main :: IO () 
 main = do 
@@ -84,61 +147,3 @@ main = do
   mainGUI 
   
   putStrLn "test ended"
-  
-  
-updateCanvas :: DrawingArea -> IORef Xournal -> IORef Int -> IO Bool
-updateCanvas canvas xojref pagenumref = do 
-  pagenumval <- readIORef pagenumref
-  xoj        <- readIORef xojref
-  win <- widgetGetDrawWindow canvas
-  (w',h') <- widgetGetSize canvas
-  
-  let totalnumofpages = (length . xoj_pages) xoj
-  
-  let currpagenum = if pagenumval >= totalnumofpages 
-                    then totalnumofpages - 1
-                    else if pagenumval < 0 
-                         then 0 
-                         else pagenumval
-                         
-  writeIORef pagenumref currpagenum 
-  
-  let currpage = ((!!currpagenum).xoj_pages) xoj
-  let strokes = (layer_strokes . (!!0) . page_layers ) currpage 
-      (Dim w h) = page_dim currpage
-  
-  renderWithDrawable win $ do 
-    scale (realToFrac w' / w) (realToFrac h' / h)
-
-    setSourceRGB 1 1 1 
-    rectangle 0 0 w h 
-    fill
-
-    setSourceRGB 0 0 0
-    setLineWidth 1
-    setLineCap LineCapRound
-    setLineJoin LineJoinRound
-
-    mapM_ drawOneStroke strokes
-    stroke
-  return True
-
-
-
-keepState render = do 
-  save
-  render
-  restore
-
-mystroke =
-  keepState $ do 
-    setSourceRGBA 1 1 0 0.7
-    stroke
-
-fillStroke = do 
-  fillPreserve
-  mystroke 
-  
-drawCircle x y r = do 
-  arc x y r 0 (2*pi)
-  fillStroke
