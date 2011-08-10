@@ -10,7 +10,7 @@ import Graphics.UI.Gtk.Gdk.EventM
 
 import Data.IORef
 
-import Text.Xournal.Type
+import Text.Xournal.Type 
 import Text.Xournal.Parse
 
                                     
@@ -20,51 +20,6 @@ drawOneStroke ((x0,y0) : xs)  = do
   moveTo x0 y0
   mapM_ f xs 
     where f (x,y) = lineTo x y 
-
-refresh_xournal :: IORef Xournal -> FilePath -> IO () 
-refresh_xournal xojref str = do 
-  xoj <- read_xournal str 
-  writeIORef xojref xoj
-
-  
-  
-updateCanvas :: DrawingArea -> IORef Xournal -> IORef Int -> IO Bool
-updateCanvas canvas xojref pagenumref = do 
-  pagenumval <- readIORef pagenumref
-  xoj        <- readIORef xojref
-  win <- widgetGetDrawWindow canvas
-  (w',h') <- widgetGetSize canvas
-  
-  let totalnumofpages = (length . xoj_pages) xoj
-  
-  let currpagenum = if pagenumval >= totalnumofpages 
-                    then totalnumofpages - 1
-                    else if pagenumval < 0 
-                         then 0 
-                         else pagenumval
-                         
-  writeIORef pagenumref currpagenum 
-  
-  let currpage = ((!!currpagenum).xoj_pages) xoj
-  let strokes = (layer_strokes . (!!0) . page_layers ) currpage 
-      (Dim w h) = page_dim currpage
-  
-  renderWithDrawable win $ do 
-    scale (realToFrac w' / w) (realToFrac h' / h)
-
-    setSourceRGB 1 1 1 
-    rectangle 0 0 w h 
-    fill
-
-    setSourceRGB 0 0 0
-    setLineWidth 1
-    setLineCap LineCapRound
-    setLineJoin LineJoinRound
-
-    mapM_ drawOneStroke strokes
-    stroke
-  return True
-
 
 
 keepState render = do 
@@ -86,13 +41,10 @@ drawCircle x y r = do
   fillStroke
 
 
-cairoDrawing :: Xournal -> Int -> Render ()
-cairoDrawing xoj page = do 
-  let currpage = ((!!page).xoj_pages) xoj
-  let strokes = (layer_strokes . (!!0) . page_layers ) currpage 
-      (Dim w h) = page_dim currpage
-
-  -- scale (realToFrac w' / w) (realToFrac h' / h)
+cairoDrawPage :: Page -> Render ()
+cairoDrawPage page = do 
+  let strokes = (layer_strokes . (!!0) . page_layers ) page 
+      (Dim w h) = page_dim page
 
   setSourceRGB 1 1 1 
   rectangle 0 0 w h 
@@ -115,17 +67,24 @@ main = do
      else return ()
           
   let filename = args !! 0  
---  myxoj <- read_xournal filename 
-  
-  pagenumref <- newIORef (0 :: Int )
-  xojref     <- newIORef (undefined :: Xournal)
-  refresh_xournal xojref filename 
-
---  ctxt <- cairoCreateContext Nothing 
-
-  xoj <- readIORef xojref
+  xoj <- read_xournal filename 
  
-  withSVGSurface "test.svg" 640 480 (\s -> renderWith s (cairoDrawing xoj 0 ))
+  let pages = xoj_pages xoj
+      names = map (\x -> "test" ++ show x ++ ".png") [1..] 
+      namePages = zip names pages 
+  let Dim w h = page_dim (head pages)
+
+  putStrLn $ " w = " ++ show w
+  putStrLn $ " h = " ++ show h  
+
+--  let svgoutfn x = withSVGSurface (fst x) w h (\s -> renderWith s (cairoDrawPage (snd x)))
+  
+  let pngoutfn x = do 
+        sfc <- createImageSurface FormatARGB32 (floor w) (floor h) 
+        renderWith sfc (cairoDrawPage (snd x))
+        surfaceWriteToPNG sfc (fst x) 
+
+  mapM_ pngoutfn namePages
 
 {-  initGUI
   window <- windowNew 
