@@ -12,11 +12,24 @@ import Data.IORef
 
 import Text.Xournal.Type 
 import Text.Xournal.Parse
+import Text.Xournal.Predefined 
 
-                                    
+import qualified Data.Map as M
+
+import Debug.Trace
 
 drawOneStroke :: Stroke -> Render ()
-drawOneStroke ((x0,y0) : xs)  = do 
+drawOneStroke s = do 
+  trace (stroke_color s) $ return ()
+  case M.lookup (stroke_color s) predefined_pencolor of
+    Just (r,g,b,a) -> setSourceRGBA r g b a 
+    Nothing -> setSourceRGBA 0 0 0 1
+  setLineWidth (stroke_width s) 
+  drawOneStrokeCurve (stroke_data s)
+  stroke
+
+drawOneStrokeCurve :: [(Double,Double)] -> Render ()
+drawOneStrokeCurve ((x0,y0) : xs) = do 
   moveTo x0 y0
   mapM_ f xs 
     where f (x,y) = lineTo x y 
@@ -41,15 +54,64 @@ drawCircle x y r = do
   fillStroke
 
 
+cairoDrawBackground :: Page -> Render () 
+cairoDrawBackground page = do 
+  let Background typ col sty = page_bkg page
+      Dim w h = page_dim page  
+  let c = M.lookup col predefined_bkgcolor  
+  case c of 
+    Just (r,g,b,a) -> setSourceRGB r g b 
+    Nothing        -> setSourceRGB 1 1 1 
+  rectangle 0 0 w h 
+  fill
+  cairoDrawRuling w h sty
+
+cairoDrawRuling :: Double -> Double ->  String -> Render () 
+cairoDrawRuling w h style = do
+  let drawHorizRules = do 
+      let (r,g,b,a) = predefined_RULING_COLOR         
+      setSourceRGBA r g b a 
+      setLineWidth predefined_RULING_THICKNESS
+      let drawonerule y = do 
+            moveTo 0 y 
+            lineTo w y
+            stroke  
+      mapM_ drawonerule [predefined_RULING_TOPMARGIN
+                        ,predefined_RULING_TOPMARGIN+predefined_RULING_SPACING
+                        ..
+                        h-1]
+  case style of 
+    "plain" -> return () 
+    "lined" -> do 
+      drawHorizRules
+      let (r2,g2,b2,a2) = predefined_RULING_MARGIN_COLOR
+      setSourceRGBA r2 g2 b2 a2 
+      setLineWidth predefined_RULING_THICKNESS
+      moveTo predefined_RULING_LEFTMARGIN 0 
+      lineTo predefined_RULING_LEFTMARGIN h
+      stroke
+    "ruled" -> drawHorizRules 
+    "graph" -> do 
+      let (r3,g3,b3,a3) = predefined_RULING_COLOR 
+      setSourceRGBA r3 g3 b3 a3 
+      setLineWidth predefined_RULING_THICKNESS
+      let drawonegraphvert x = do 
+            moveTo x 0 
+            lineTo x h
+            stroke  
+      let drawonegraphhoriz y = do 
+            moveTo 0 y
+            lineTo w y
+            stroke
+      mapM_ drawonegraphvert  [0,predefined_RULING_GRAPHSPACING..w-1] 
+      mapM_ drawonegraphhoriz [0,predefined_RULING_GRAPHSPACING..h-1]
+    _ -> return ()     
+
 cairoDrawPage :: Page -> Render ()
 cairoDrawPage page = do 
   let strokes = (layer_strokes . (!!0) . page_layers ) page 
       (Dim w h) = page_dim page
-
-  setSourceRGB 1 1 1 
-  rectangle 0 0 w h 
-  fill
-
+  cairoDrawBackground page
   setSourceRGB 0 0 0
   setLineWidth 1
   setLineCap LineCapRound
@@ -57,6 +119,8 @@ cairoDrawPage page = do
 
   mapM_ drawOneStroke strokes
   stroke
+
+
 
 
 main :: IO () 
@@ -85,49 +149,5 @@ main = do
         surfaceWriteToPNG sfc (fst x) 
 
   mapM_ pngoutfn namePages
-
-{-  initGUI
-  window <- windowNew 
-  hbox  <- hBoxNew False 0 
-  vbox  <- vBoxNew False 0
-  
-  buttonleft    <- buttonNewWithLabel "<"
-  buttonright   <- buttonNewWithLabel ">"
-  buttonrefresh <- buttonNewWithLabel "Refresh"  
-  buttonquit    <- buttonNewWithLabel "Quit"
-
-  canvas <- drawingAreaNew
-  
-  set window [containerChild := vbox ]
- 
-  boxPackStart hbox buttonleft    PackGrow 0 
-  boxPackStart hbox buttonright   PackGrow 0
-  boxPackStart hbox buttonrefresh PackGrow 0
-  boxPackStart hbox buttonquit    PackGrow 0 
-  
-  boxPackEnd vbox hbox   PackNatural 0 
-  boxPackEnd vbox canvas PackGrow 0 
- 
-  canvas `on` sizeRequest $ return (Requisition 40 40)
-  -- ctxt <- cairoCreateContext Nothing 
-  onExpose canvas $ const (updateCanvas canvas xojref pagenumref)
-  
-  onClicked buttonleft    $ do modifyIORef pagenumref (\x->x-1) 
-                               updateCanvas canvas xojref pagenumref 
-                               return ()
-  onClicked buttonright   $ do modifyIORef pagenumref (+1) 
-                               updateCanvas canvas xojref pagenumref
-                               return ()
-  onClicked buttonrefresh $ do refresh_xournal xojref filename 
-                               updateCanvas canvas xojref pagenumref
-                               putStrLn "refresh button clicked"
-                               return ()
-  onClicked buttonquit    mainQuit           
-                    
-  
-  widgetShowAll window
-  onDestroy window mainQuit
-  
-  mainGUI  -}
    
   putStrLn "test ended"
