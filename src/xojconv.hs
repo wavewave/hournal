@@ -14,10 +14,13 @@ import Text.Xournal.Type
 import Text.Xournal.Parse
 import Text.Xournal.Predefined 
 
+import Graphics.Xournal.Render 
+
 import qualified Data.Map as M
 
 import Debug.Trace
 
+{-
 drawOneStroke :: Stroke -> Render ()
 drawOneStroke s = do 
   trace (stroke_color s) $ return ()
@@ -121,7 +124,7 @@ cairoDrawPage page = do
   stroke
 
 
-
+-}
 
 main :: IO () 
 main = do 

@@ -5,7 +5,7 @@ module InitDevice (
   ) where
 
 
-foreign import ccall "initdevice.h initdevice" c_initdevice
+foreign import ccall "c_initdevice.h initdevice" c_initdevice
   :: IO ()
 
 
