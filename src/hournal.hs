@@ -13,11 +13,9 @@ import Graphics.Xournal.Render
                                     
 refresh_xournal :: IORef Xournal -> FilePath -> IO () 
 refresh_xournal xojref str = do 
-  xoj <- read_xournal str 
+  xoj <- read_xojgz str 
   writeIORef xojref $! xoj
 
-  
-  
 updateCanvas :: DrawingArea -> IORef Xournal -> IORef Int -> IO Bool
 updateCanvas canvas xojref pagenumref = do 
   pagenumval <- readIORef pagenumref 
@@ -49,18 +47,12 @@ main = do
      else return ()
           
   let filename = args !! 0  
---  myxoj <- read_xournal filename 
-  
+
   pagenumref <- newIORef (0 :: Int )
   xojref     <- newIORef (undefined :: Xournal)
   refresh_xournal xojref filename 
 
 --  ctxt <- cairoCreateContext Nothing 
-
-{-
-  xoj <- readIORef xojref
- 
-  withSVGSurface "test.svg" 640 480 (\s -> renderWith s (cairoDrawing xoj 0 )) -}
 
   initGUI
   window <- windowNew 
@@ -85,7 +77,6 @@ main = do
   boxPackEnd vbox canvas PackGrow 0 
  
   canvas `on` sizeRequest $ return (Requisition 40 40)
-  -- ctxt <- cairoCreateContext Nothing 
   onExpose canvas $ const (updateCanvas canvas xojref pagenumref)
   
   onClicked buttonleft    $ do modifyIORef pagenumref (\x->x-1) 
