@@ -1,12 +1,12 @@
 #include <gtk/gtk.h>
 #include <stdio.h>
 
-void initdevice( int list[100] )
+void initdevice( int* stylus )
 {
   GList* dev_list;
   GdkDevice* device;
   dev_list = gdk_devices_list();
-  int i = 0; 
+  (*stylus) = 0;
   while (dev_list != NULL) {
     printf ("one device\n"); 
     device = (GdkDevice *)dev_list->data;
@@ -19,8 +19,8 @@ void initdevice( int list[100] )
       gdk_device_set_mode(device, GDK_MODE_SCREEN);
 
       printf("   yeah this is xinput device %s \n", device -> name);
-      list[i] = (int) device; 
-      i++; 
+      if( !strcmp (device->name, "stylus") )
+        (*stylus) = (int) device; 
     } 
     dev_list = dev_list->next; 
   }
