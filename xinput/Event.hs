@@ -7,7 +7,7 @@ import Type
 import Graphics.UI.Gtk
 import Coroutine
 
-import "mtl" Control.Monad.Trans
+import Control.Monad.Trans
 
 import Data.IORef
 
